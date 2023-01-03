@@ -139,8 +139,6 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         self.startingcash = self.store._cash
         self.startingvalue = self.store._value
 
-        self.use_order_params = True
-
     def get_balance(self):
         self.store.get_balance()
         self.cash = self.store._cash
@@ -232,7 +230,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 o_order.cancel()
                 self.notify(o_order)
 
-    def _submit(self, owner, data, exectype, side, amount, price, params):
+    def _submit(self, owner, data, exectype, side, amount, price, params={}):
         if amount == 0 or price == 0:
         # do not allow failing orders
             return None
@@ -240,19 +238,12 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         created = int(data.datetime.datetime(0).timestamp()*1000)
         # Extract CCXT specific params if passed to the order
         params = params['params'] if 'params' in params else params
-        if not self.use_order_params:
+        try:
             ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
-                                              amount=amount, price=price, params={})
-        else:
-            try:
-                # all params are exchange specific: https://github.com/ccxt/ccxt/wiki/Manual#custom-order-params
-                params['created'] = created  # Add timestamp of order creation for backtesting
-                ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
-                                                  amount=amount, price=price, params=params)
-            except:
-                # save some API calls after failure
-                self.use_order_params = False
-                return None
+                                              amount=amount, price=price, params=params)
+        except Exception as e:
+            print(e)
+            return None
 
         _order = self.store.fetch_order(ret_ord['id'], data.p.dataname)
 
